@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>Anúncios OLX</title>
+    <style>
+        td.acoes {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        td.acoes button { width: 100%; }
+
+        .switch { position: relative; display: inline-block; width: 50px; height: 28px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ccc; transition: 0.4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 20px; width: 20px; left: 4px; bottom: 4px;
+            background-color: white; transition: 0.4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #4CAF50; }
+        input:checked + .slider:before { transform: translateX(22px); }
+        .slider.round { border-radius: 34px; }
+
+        table { width: 100%; border-collapse: collapse; }
+        td, th { border: 1px solid #ccc; padding: 8px; }
+        img { max-width: 100px; }
+        .favorito { background: gold; }
+        .novo { background: lightgreen; }
+    </style>
+</head>
+<body>
+<h1>Lista de Anúncios</h1>
+
+<div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+    <span style="font-size: 18px; font-weight: bold; margin-bottom: 10px;">
+        Total de anúncios: <strong id="contadorAnuncios"></strong>
+    </span>
+
+    <input type="text" id="filtroNome" placeholder="Filtrar por nome..." style="padding:5px; width:250px; text-align:center; margin-bottom:10px;">
+
+    <div style="display: flex; gap: 20px; margin-bottom: 10px;">
+        <!-- Mostrar apenas favoritos -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <span>Mostrar apenas favoritos</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleFavoritos">
+                <span class="slider round"></span>
+            </label>
+        </div>
+
+        <!-- Mostrar somente novos -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <span>Mostrar somente novos</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleSomenteNovos">
+                <span class="slider round"></span>
+            </label>
+        </div>
+
+        <!-- Ocultar novos -->
+        <div style="display: flex; align-items: center; gap: 5px;">
+            <span>Ocultar novos</span>
+            <label class="switch">
+                <input type="checkbox" id="toggleOcultarNovos">
+                <span class="slider round"></span>
+            </label>
+        </div>
+    </div>
+</div>
+
+<table border="1">
+    <thead>
+    <tr>
+        <th>Código</th>
+        <th>Título</th>
+        <th>Preço</th>
+        <th>Local</th>
+        <th>Info</th>
+        <th>Imagem</th>
+        <th>Link</th>
+        <th>Ações</th>
+    </tr>
+    </thead>
+    <tbody id="tabelaAnuncios">
+    <tr th:each="anuncio : ${anuncios}"
+        th:attr="data-id=${anuncio.id}, data-favorito=${anuncio.favorito}, data-novo=${anuncio.novo}"
+        th:classappend="${anuncio.favorito} ? 'favorito' : '' + ' ' + (${anuncio.novo} ? 'novo' : '')">
+        <td th:text="${anuncio.id}"></td>
+        <td th:text="${anuncio.titulo}"></td>
+        <td th:text="${anuncio.preco}"></td>
+        <td th:text="${anuncio.local}"></td>
+        <td th:text="${anuncio.info}"></td>
+        <td>
+            <img th:if="${img}" th:src="${anuncio.imgUrl}" alt="Sem imagem">
+        </td>
+        <td>
+            <a th:href="${anuncio.link}" target="_blank">Ver anúncio</a>
+        </td>
+        <td class="acoes">
+            <button class="btn-favorito"
+                    th:text="${anuncio.favorito} ? 'Desfavoritar' : 'Favoritar'"
+                    onclick="toggleFavorito(this)"></button>
+            <button onclick="remover(this)">Remover</button>
+            <button th:if="${anuncio.novo}" class="btn-visualizado" onclick="visualizado(this)">Visualizado</button>
+        </td>
+    </tr>
+    </tbody>
+</table>
+
+<script>
+    document.addEventListener("DOMContentLoaded", () => {
+        atualizarContador();
+
+        document.getElementById("filtroNome").addEventListener("input", aplicarFiltros);
+        document.getElementById("toggleFavoritos").addEventListener("change", aplicarFiltros);
+        document.getElementById("toggleSomenteNovos").addEventListener("change", aplicarFiltros);
+        document.getElementById("toggleOcultarNovos").addEventListener("change", aplicarFiltros);
+    });
+
+    function toggleFavorito(btn) {
+        const tr = btn.closest("tr");
+        const id = tr.dataset.id;
+        const isFavorito = btn.innerText === "Desfavoritar";
+
+        fetch(`/registers/favoritar/${id}`, {
+            method: "POST",
+            headers: {"Content-Type": "application/json", "ngrok-skip-browser-warning": "true"},
+            body: JSON.stringify({favorito: !isFavorito})
+        }).then(r => {
+            if (r.ok) {
+                tr.dataset.favorito = (!isFavorito).toString();
+                btn.innerText = isFavorito ? "Favoritar" : "Desfavoritar";
+                tr.classList.toggle("favorito", !isFavorito);
+                aplicarFiltros();
+            }
+        });
+    }
+
+    function remover(btn) {
+        const tr = btn.closest("tr");
+        const id = tr.dataset.id;
+        fetch(`/registers/remover/${id}`, {method: "POST", headers: {"ngrok-skip-browser-warning": "true"}})
+            .then(r => { if(r.ok) { tr.remove(); atualizarContador(); } });
+    }
+
+    function visualizado(btn) {
+        const tr = btn.closest("tr");
+        const id = tr.dataset.id;
+        fetch(`/registers/visualizado/${id}`, {method: "POST", headers: {"ngrok-skip-browser-warning": "true"}})
+            .then(r => {
+                if(r.ok) {
+                    tr.classList.remove("novo");
+                    tr.dataset.novo = "false";
+                    btn.remove();
+                    aplicarFiltros();
+                    atualizarContador();
+                }
+            });
+    }
+
+    function aplicarFiltros() {
+        const filtroNome = document.getElementById("filtroNome").value.toLowerCase();
+        const somenteFavoritos = document.getElementById("toggleFavoritos").checked;
+        const somenteNovos = document.getElementById("toggleSomenteNovos").checked;
+        const ocultarNovos = document.getElementById("toggleOcultarNovos").checked;
+
+        // Evita conflito entre toggles de novos
+        if(somenteNovos && ocultarNovos) document.getElementById("toggleOcultarNovos").checked = false;
+
+        document.querySelectorAll("#tabelaAnuncios tr").forEach(tr => {
+            const titulo = tr.querySelector("td:nth-child(2)").textContent.toLowerCase();
+            const info = tr.querySelector("td:nth-child(5)").textContent.toLowerCase();
+            const ehFavorito = tr.dataset.favorito === "true";
+            const ehNovo = tr.dataset.novo === "true";
+
+            let mostrar = titulo.includes(filtroNome) || info.includes(filtroNome);
+            if(somenteFavoritos && !ehFavorito) mostrar = false;
+            if(somenteNovos && !ehNovo) mostrar = false;
+            if(ocultarNovos && ehNovo) mostrar = false;
+
+            tr.style.display = mostrar ? "" : "none";
+        });
+
+        atualizarContador();
+    }
+
+    function atualizarContador() {
+        const totalVisiveis = [...document.querySelectorAll("#tabelaAnuncios tr")]
+            .filter(tr => tr.style.display !== "none").length;
+        document.getElementById("contadorAnuncios").innerText = totalVisiveis;
+    }
+</script>
+</body>
+</html>
