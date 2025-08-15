@@ -12,7 +12,7 @@ public class SchedulerService {
     @Scheduled(cron = "0 */1 * * * ?") // Runs every hour at minute 0
     public void performScheduledTask() {
         RestTemplate restTemplate = new RestTemplate();
-        restTemplate.getForObject("https://carro-w0n1.onrender.com", String.class);
+        restTemplate.getForObject("https://carro-w0n1.onrender.com/actuator", String.class);
         log.info("Scheduled task executed successfully at {}", System.currentTimeMillis());
     }
 }
