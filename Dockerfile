@@ -18,5 +18,6 @@ VOLUME /tmp
 
 # Copy the JAR from the build stage
 COPY --from=build /app/target/*.jar app.jar
+ENV MONGO_URI
 ENTRYPOINT ["java","-jar","/app.jar"]
 EXPOSE 8080
